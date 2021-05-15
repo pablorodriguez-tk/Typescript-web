@@ -139,16 +139,16 @@ function () {
 
   Model.prototype.set = function (update) {
     this.attributes.set(update);
-    this.events.trigger("change");
+    this.events.trigger('change');
   };
 
   Model.prototype.fetch = function () {
     var _this = this;
 
-    var id = this.get("id");
+    var id = this.get('id');
 
-    if (typeof id !== "number") {
-      throw new Error("Cannot fetch without an id");
+    if (typeof id !== 'number') {
+      throw new Error('Cannot fetch without an id');
     }
 
     this.sync.fetch(id).then(function (response) {
@@ -160,9 +160,9 @@ function () {
     var _this = this;
 
     this.sync.save(this.attributes.getAll()).then(function (response) {
-      _this.trigger("save");
+      _this.trigger('save');
     }).catch(function () {
-      _this.trigger("error");
+      _this.trigger('error');
     });
   };
 
@@ -2083,7 +2083,66 @@ function () {
 }();
 
 exports.Eventing = Eventing;
-},{}],"src/models/User.ts":[function(require,module,exports) {
+},{}],"src/models/Collection.ts":[function(require,module,exports) {
+"use strict";
+
+var __importDefault = this && this.__importDefault || function (mod) {
+  return mod && mod.__esModule ? mod : {
+    "default": mod
+  };
+};
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Collection = void 0;
+
+var Eventing_1 = require("./Eventing");
+
+var axios_1 = __importDefault(require("axios"));
+
+var Collection =
+/** @class */
+function () {
+  function Collection(rootUrl, deserialize) {
+    this.rootUrl = rootUrl;
+    this.deserialize = deserialize;
+    this.models = [];
+    this.events = new Eventing_1.Eventing();
+  }
+
+  Object.defineProperty(Collection.prototype, "on", {
+    get: function get() {
+      return this.events.on;
+    },
+    enumerable: false,
+    configurable: true
+  });
+  Object.defineProperty(Collection.prototype, "trigger", {
+    get: function get() {
+      return this.events.trigger;
+    },
+    enumerable: false,
+    configurable: true
+  });
+
+  Collection.prototype.fetch = function () {
+    var _this = this;
+
+    axios_1.default.get(this.rootUrl).then(function (response) {
+      response.data.forEach(function (value) {
+        _this.models.push(_this.deserialize(value));
+      });
+
+      _this.trigger('change');
+    });
+  };
+
+  return Collection;
+}();
+
+exports.Collection = Collection;
+},{"./Eventing":"src/models/Eventing.ts","axios":"node_modules/axios/index.js"}],"src/models/User.ts":[function(require,module,exports) {
 "use strict";
 
 var __extends = this && this.__extends || function () {
@@ -2127,7 +2186,9 @@ var ApiSync_1 = require("./ApiSync");
 
 var Eventing_1 = require("./Eventing");
 
-var rootUrl = "http://localhost:3000/users";
+var Collection_1 = require("./Collection");
+
+var rootUrl = 'http://localhost:3000/users';
 
 var User =
 /** @class */
@@ -2142,11 +2203,85 @@ function (_super) {
     return new User(new Attributes_1.Attributes(attrs), new Eventing_1.Eventing(), new ApiSync_1.ApiSync(rootUrl));
   };
 
+  User.buildUserCollection = function () {
+    return new Collection_1.Collection(rootUrl, function (json) {
+      return User.buildUser(json);
+    });
+  };
+
+  User.prototype.setRandomAge = function () {
+    var age = Math.round(Math.random() * 100);
+    this.set({
+      age: age
+    });
+  };
+
   return User;
 }(Model_1.Model);
 
 exports.User = User;
-},{"./Model":"src/models/Model.ts","./Attributes":"src/models/Attributes.ts","./ApiSync":"src/models/ApiSync.ts","./Eventing":"src/models/Eventing.ts"}],"src/index.ts":[function(require,module,exports) {
+},{"./Model":"src/models/Model.ts","./Attributes":"src/models/Attributes.ts","./ApiSync":"src/models/ApiSync.ts","./Eventing":"src/models/Eventing.ts","./Collection":"src/models/Collection.ts"}],"src/views/UserForm.ts":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.UserForm = void 0;
+
+var UserForm =
+/** @class */
+function () {
+  function UserForm(parent, model) {
+    var _this = this;
+
+    this.parent = parent;
+    this.model = model;
+
+    this.onSetAgeClick = function () {
+      _this.model.setRandomAge();
+    };
+  }
+
+  UserForm.prototype.eventsMap = function () {
+    return {
+      'click:.set-age': this.onSetAgeClick
+    };
+  };
+
+  UserForm.prototype.template = function () {
+    return "\n    <div>\n      <h1>UserForm</h1>\n      <div>User name:" + this.model.get('name') + "</div>\n      <div>User age:" + this.model.get('age') + "</div>\n      <input/>\n      <button>Click Me</button>\n      <button class=\"set-age\">Set Random Age</button>\n    </div>\n    ";
+  };
+
+  UserForm.prototype.bindEvents = function (fragment) {
+    var eventsMap = this.eventsMap();
+
+    var _loop_1 = function _loop_1(eventKey) {
+      var _a = eventKey.split(':'),
+          eventName = _a[0],
+          selector = _a[1];
+
+      fragment.querySelectorAll(selector).forEach(function (element) {
+        element.addEventListener(eventName, eventsMap[eventKey]);
+      });
+    };
+
+    for (var eventKey in eventsMap) {
+      _loop_1(eventKey);
+    }
+  };
+
+  UserForm.prototype.render = function () {
+    var templateElement = document.createElement('template');
+    templateElement.innerHTML = this.template();
+    this.bindEvents(templateElement.content);
+    this.parent.append(templateElement.content);
+  };
+
+  return UserForm;
+}();
+
+exports.UserForm = UserForm;
+},{}],"src/index.ts":[function(require,module,exports) {
 "use strict";
 
 Object.defineProperty(exports, "__esModule", {
@@ -2155,14 +2290,15 @@ Object.defineProperty(exports, "__esModule", {
 
 var User_1 = require("./models/User");
 
+var UserForm_1 = require("./views/UserForm");
+
 var user = User_1.User.buildUser({
-  id: 1
+  name: 'NAME',
+  age: 20
 });
-user.on("change", function () {
-  console.log(user);
-});
-user.fetch();
-},{"./models/User":"src/models/User.ts"}],"C:/Users/PABLO RODRÍGUEZ/AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+var userForm = new UserForm_1.UserForm(document.getElementById('#root'), user);
+userForm.render();
+},{"./models/User":"src/models/User.ts","./views/UserForm":"src/views/UserForm.ts"}],"C:/Users/PABLO RODRÍGUEZ/AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -2190,7 +2326,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61274" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "53351" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
