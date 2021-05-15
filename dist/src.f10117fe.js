@@ -2240,7 +2240,17 @@ function () {
     this.onSetAgeClick = function () {
       _this.model.setRandomAge();
     };
+
+    this.bindModel();
   }
+
+  UserForm.prototype.bindModel = function () {
+    var _this = this;
+
+    this.model.on('change', function () {
+      _this.render();
+    });
+  };
 
   UserForm.prototype.eventsMap = function () {
     return {
@@ -2271,6 +2281,7 @@ function () {
   };
 
   UserForm.prototype.render = function () {
+    this.parent.innerHTML = '';
     var templateElement = document.createElement('template');
     templateElement.innerHTML = this.template();
     this.bindEvents(templateElement.content);
@@ -2296,7 +2307,7 @@ var user = User_1.User.buildUser({
   name: 'NAME',
   age: 20
 });
-var userForm = new UserForm_1.UserForm(document.getElementById('#root'), user);
+var userForm = new UserForm_1.UserForm(document.querySelector('#root'), user);
 userForm.render();
 },{"./models/User":"src/models/User.ts","./views/UserForm":"src/views/UserForm.ts"}],"C:/Users/PABLO RODRÍGUEZ/AppData/Roaming/npm/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
